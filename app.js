@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'https://your-project.supabase.co';
-const SUPABASE_KEY = 'your-publishable-key';
+const SUPABASE_URL = 'https://luniefzosslboalopzhp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1bmllZnpvc3NsYm9hbG9wemhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NDU3NjYsImV4cCI6MjA5MzEyMTc2Nn0.ExuwRBGDBw4FU-ApoRO_59iP-H8x0vjDA_n72TJNOtk';
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
