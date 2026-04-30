@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PickleSquad | Open Play Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+	<link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script>
+		// Replace these with your actual credentials from Supabase
+		const SUPABASE_URL = 'https://your-project-url.supabase.co';
+		const SUPABASE_KEY = 'your-anon-public-key';
+		const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+	</script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+
+    <div id="app" class="max-w-md mx-auto min-h-screen p-4">
+        <!-- Header -->
+        <header class="py-6 text-center">
+            <h1 class="text-3xl font-black text-indigo-600 italic">PICKLESQUAD</h1>
+            <p class="text-slate-500 text-xs uppercase tracking-widest">Thane Open-Play Coordinator</p>
+        </header>
+
+        <!-- View 1: Organizer Dashboard (Default) -->
+        <div id="view-organizer" class="space-y-6">
+            <section class="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+                <h2 class="font-bold text-lg mb-4">Create New Session</h2>
+                <div class="space-y-4">
+                    <input type="text" id="title" placeholder="Session Title (e.g. Friday Night Triworld)" class="w-full p-3 rounded-xl border border-slate-200">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Date</label>
+                            <input type="date" id="date" class="w-full p-3 rounded-xl border border-slate-200">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Max Players</label>
+                            <input type="number" id="limit" value="12" class="w-full p-3 rounded-xl border border-slate-200">
+                        </div>
+                    </div>
+                    
+                    <button onclick="handleCreate()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-indigo-700 transition">Initialize Squad</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- View 2: Player Lobby (Hidden by default) -->
+        <div id="view-lobby" class="hidden space-y-6">
+            <div id="session-info" class="text-center p-4">
+                <!-- Session Title & Date injected here -->
+            </div>
+
+            <section class="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+                <div class="flex gap-2 mb-6">
+                    <input type="text" id="playerName" placeholder="Enter your name" class="flex-1 p-3 rounded-xl border border-slate-200">
+                    <button onclick="handleJoin()" class="bg-green-600 text-white px-6 rounded-xl font-bold">JOIN</button>
+                </div>
+
+                <div id="player-list" class="space-y-2">
+                    <!-- Players injected here -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

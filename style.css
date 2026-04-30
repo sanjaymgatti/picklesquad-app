@@ -1,0 +1,55 @@
+/* Custom Styles for PickleSquad */
+
+:root {
+    --brand-indigo: #4f46e5;
+}
+
+body {
+    /* Prevents the "bounce" effect on mobile scrolling */
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom shadow for a "card" look */
+.squad-card {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+/* Animation for the "Waitlist" items to slide in */
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.player-entry {
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+/* Making the date picker look consistent across browsers */
+input[type="date"] {
+    appearance: none;
+    min-height: 3rem;
+}
+
+/* Aesthetic for the Playing vs Waitlist badges */
+.badge-playing {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #d1fae5;
+}
+
+.badge-waitlist {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fef3c7;
+}
+
+/* Responsive button press effect */
+button:active {
+    transform: scale(0.98);
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
