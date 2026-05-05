@@ -128,17 +128,42 @@ async function openLobby(id) {
 }
 
 async function toggleJoin() {
-    const { data: players } = await _supabase.from('participants').select('*').eq('session_id', currentSessionId);
+    // 1. Get the current list of players for this session
+    const { data: players, error: fetchError } = await _supabase
+        .from('participants')
+        .select('*')
+        .eq('session_id', currentSessionId);
+
+    if (fetchError) {
+        alert("Error fetching players: " + fetchError.message);
+        return;
+    }
+
     const userEntry = players.find(p => p.user_id === currentUser.id);
 
     if (userEntry) {
-        // UNJOIN
-        await _supabase.from('participants').delete().eq('id', userEntry.id);
+        // UNJOIN Logic
+        const { error: deleteError } = await _supabase
+            .from('participants')
+            .delete()
+            .eq('id', userEntry.id);
+            
+        if (deleteError) alert("Could not unjoin: " + deleteError.message);
     } else {
-        // JOIN (Using email prefix as default name for now)
+        // JOIN Logic
         const name = currentUser.email.split('@')[0];
-        await _supabase.from('participants').insert([{ session_id: currentSessionId, player_name: name, user_id: currentUser.id }]);
+        const { error: insertError } = await _supabase
+            .from('participants')
+            .insert([{ 
+                session_id: currentSessionId, 
+                player_name: name, 
+                user_id: currentUser.id 
+            }]);
+            
+        if (insertError) alert("Could not join: " + insertError.message);
     }
+    
+    // Refresh the view regardless of outcome to show current state
     openLobby(currentSessionId);
 }
 
