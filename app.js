@@ -1,241 +1,155 @@
-/**
- * PickleSquad Standalone App Logic
- * Features: 4-day advance limit, Real-time Lobby, Auto-Waitlist
- */
-
-// 1. INITIALIZATION
 const SUPABASE_URL = 'https://luniefzosslboalopzhp.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1bmllZnpvc3NsYm9hbG9wemhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NDU3NjYsImV4cCI6MjA5MzEyMTc2Nn0.ExuwRBGDBw4FU-ApoRO_59iP-H8x0vjDA_n72TJNOtk';
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// State management for the current session
-let currentSessionId = new URLSearchParams(window.location.search).get('id');
+let currentUser = null;
+let currentSessionId = null;
 
-window.onload = async () => {
-    // If there's an ID in the URL, go straight to that session's lobby
-    if (currentSessionId) {
-        showLobby(currentSessionId);
-    }
-};
-
-// 2. ORGANIZER LOGIC: CREATE SESSION
-async function handleCreate() {
-    const title = document.getElementById('title').value;
-    const sDate = document.getElementById('date').value;
-    const limit = parseInt(document.getElementById('limit').value);
-
-    if (!title || !sDate || !limit) {
-        alert("Please fill in all fields.");
-        return;
-    }
-
-    // Date Validation: Only 4 days in advance
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const limitDate = new Date();
-    limitDate.setDate(today.getDate() + 4);
-    limitDate.setHours(23, 59, 59, 999);
-
-    const chosenDate = new Date(sDate);
-
-    if (chosenDate < today || chosenDate > limitDate) {
-        alert("Error: You can only schedule games between today and the next 4 days.");
-        return;
-    }
-
-    // Insert into Supabase
-    const { data, error } = await _supabase
-        .from('sessions')
-        .insert([{ 
-            title: title, 
-            session_date: sDate, 
-            max_players: limit 
-        }])
-        .select();
-
-    if (error) {
-        console.error(error);
-        alert("Failed to create session.");
-    } else if (data && data.length > 0) {
-        // Redirect to the session's unique URL
-        const shareLink = window.location.origin + window.location.pathname + "?id=" + data[0].id;
-        window.location.href = shareLink;
-    }
-}
-
-// 3. PLAYER LOGIC: JOIN & LOBBY
-async function showLobby(id) {
-    // Switch Views
-    document.getElementById('view-organizer').classList.add('hidden');
-    document.getElementById('view-lobby').classList.remove('hidden');
-
-    // Fetch Session Details
-    const { data: session, error: sError } = await _supabase
-        .from('sessions')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-    if (sError || !session) {
-        alert("Session not found or expired.");
-        window.location.href = window.location.pathname; // Go back to creator
-        return;
-    }
-
-    document.getElementById('session-info').innerHTML = `
-        <h2 class="text-2xl font-black text-slate-800">${session.title}</h2>
-        <p class="text-indigo-600 font-bold">${formatDate(session.session_date)}</p>
-    `;
-
-    // Initial load of players
-    refreshPlayerList(id, session.max_players);
-}
-
-async function handleJoin() {
-    const playerName = document.getElementById('playerName').value.trim();
-
-    if (!playerName) {
-        alert("Please enter your name.");
-        return;
-    }
-
-    const { error } = await _supabase
-        .from('participants')
-        .insert([{ 
-            session_id: currentSessionId, 
-            player_name: playerName 
-        }]);
-
-    if (error) {
-        alert("Error joining session. You might already be on the list.");
-    } else {
-        document.getElementById('playerName').value = ""; // Clear input
-        // Refresh to show updated list
-        const { data: session } = await _supabase.from('sessions').select('max_players').eq('id', currentSessionId).single();
-        refreshPlayerList(currentSessionId, session.max_players);
-    }
-}
-
-async function refreshPlayerList(sessionId, limit) {
-    const { data: players, error } = await _supabase
-        .from('participants')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
-
-    if (!error) {
-        renderPlayers(players, limit);
-    }
-}
-
-// 4. UI RENDERING
-function renderPlayers(players, limit) {
-    const list = document.getElementById('player-list');
-    list.innerHTML = "";
-
-    players.forEach((p, index) => {
-        const isWaitlist = index >= limit;
-        const div = document.createElement('div');
-        
-        // Add animation and styling
-        div.className = `player-entry flex justify-between items-center p-4 rounded-xl mb-2 ${isWaitlist ? 'badge-waitlist' : 'badge-playing'}`;
-        
-        div.innerHTML = `
-            <div class="flex items-center gap-3">
-                <span class="text-xs font-bold opacity-50">${index + 1}</span>
-                <span class="font-bold text-slate-800">${p.player_name}</span>
-            </div>
-            <span class="text-[9px] px-2 py-1 rounded-md uppercase font-black tracking-tighter">
-                ${isWaitlist ? 'Waitlist' : 'Confirmed'}
-            </span>
-        `;
-        list.appendChild(div);
-    });
-
-    if (players.length === 0) {
-        list.innerHTML = `<p class="text-center text-slate-400 py-10 text-sm italic">No players joined yet. Be the first!</p>`;
-    }
-}
-
-// 5. UTILITY FUNCTIONS
-function formatDate(dateStr) {
-    const options = { weekday: 'long', month: 'long', day: 'numeric' };
-    return new Date(dateStr).toLocaleDateString(undefined, options);
-}
-
-/**
- * CLEANUP UTILITY: Run this manually or via Cron
- * Deletes sessions older than 7 days
- */
-async function cleanupOldData() {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const dateString = sevenDaysAgo.toISOString().split('T')[0];
-
-    await _supabase
-        .from('sessions')
-        .delete()
-        .lt('session_date', dateString);
-}
-
-// Sign up or Login
-async function handleLogin(email) {
-  const { data, error } = await _supabase.auth.signInWithOtp({
-    email: email,
-    options: {
-      emailRedirectTo: window.location.origin // Sends a magic link
-    }
-  });
-  if (error) alert(error.message);
-  else alert("Check your email for the login link!");
-}
-
-async function fetchAllAvailableSessions() {
-  const { data, error } = await _supabase
-    .from('sessions')
-    .select('*')
-    .gte('session_date', new Date().toISOString()); // Only future sessions
-  renderSessionList(data); 
-}
-
-async function fetchMySessions() {
-  const user = await _supabase.auth.getUser();
-  const { data } = await _supabase
-    .from('sessions')
-    .select('*')
-    .eq('created_by', user.data.user.id);
-  renderMySessions(data);
-}
+// --- 1. AUTHENTICATION LOGIC ---
 
 _supabase.auth.onAuthStateChange((event, session) => {
-    if (session) {
-        document.getElementById('auth-view').classList.add('hidden');
-        document.getElementById('dashboard-view').classList.remove('hidden');
-        loadAllSessions(); // Default tab
+    currentUser = session?.user || null;
+    if (currentUser) {
+        showView('view-dashboard');
+        switchTab('all');
     } else {
-        document.getElementById('auth-view').classList.remove('hidden');
-        document.getElementById('dashboard-view').classList.add('hidden');
+        showView('view-auth');
     }
 });
 
-async function loadMySessions() {
-    const { data: { user } } = await _supabase.auth.getUser();
-    const { data } = await _supabase
-        .from('sessions')
-        .select('*')
-        .eq('created_by', user.id)
-        .order('session_date', { ascending: true });
-    
-    renderSessionList(data, 'tab-mine');
+async function handleAuth() {
+    const email = document.getElementById('auth-email').value;
+    const { error } = await _supabase.auth.signInWithOtp({ 
+        email,
+        options: { emailRedirectTo: window.location.origin }
+    });
+    if (error) alert(error.message);
+    else alert("Magic link sent! Check your email.");
 }
 
-async function unjoinSession(sessionId) {
-    const { data: { user } } = await _supabase.auth.getUser();
-    const { error } = await _supabase
-        .from('participants')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('user_id', user.id); // Ensures you can only remove yourself
+async function handleLogout() {
+    await _supabase.auth.signOut();
+    window.location.href = window.location.origin;
+}
 
-    if (!error) refreshLobby();
+// --- 2. NAVIGATION & TABS ---
+
+function showView(viewId) {
+    ['view-auth', 'view-dashboard', 'view-lobby'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+    document.getElementById(viewId).classList.remove('hidden');
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active', 'text-slate-900'));
+    
+    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    document.getElementById(`btn-${tab}`).classList.add('tab-active');
+
+    if (tab === 'all') loadAllSessions();
+    if (tab === 'mine') loadMySessions();
+}
+
+// --- 3. SESSION LOGIC ---
+
+async function handleCreateSession() {
+    const title = document.getElementById('new-title').value;
+    const date = document.getElementById('new-date').value;
+    const limit = parseInt(document.getElementById('new-limit').value);
+
+    const { data, error } = await _supabase.from('sessions').insert([
+        { title, session_date: date, max_players: limit, created_by: currentUser.id }
+    ]).select();
+
+    if (error) alert(error.message);
+    else {
+        alert("Session Created!");
+        switchTab('mine');
+    }
+}
+
+async function loadAllSessions() {
+    const { data } = await _supabase.from('sessions').select('*').order('session_date', { ascending: true });
+    renderList(data, 'list-all');
+}
+
+async function loadMySessions() {
+    const { data } = await _supabase.from('sessions').select('*').eq('created_by', currentUser.id);
+    renderList(data, 'list-mine');
+}
+
+function renderList(sessions, elementId) {
+    const container = document.getElementById(elementId);
+    container.innerHTML = sessions.length ? '' : '<p class="text-slate-400 italic">No sessions found.</p>';
+    
+    sessions.forEach(s => {
+        const div = document.createElement('div');
+        div.className = "bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center cursor-pointer hover:border-indigo-300";
+        div.onclick = () => openLobby(s.id);
+        div.innerHTML = `
+            <div>
+                <h4 class="font-bold">${s.title}</h4>
+                <p class="text-xs text-slate-500">${new Date(s.session_date).toDateString()}</p>
+            </div>
+            <span class="text-indigo-600 font-bold">→</span>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// --- 4. LOBBY & JOIN/UNJOIN LOGIC ---
+
+async function openLobby(id) {
+    currentSessionId = id;
+    showView('view-lobby');
+    
+    const { data: session } = await _supabase.from('sessions').select('*').eq('id', id).single();
+    const { data: players } = await _supabase.from('participants').select('*').eq('session_id', id).order('created_at', { ascending: true });
+
+    document.getElementById('lobby-header').innerHTML = `
+        <h2 class="text-3xl font-black">${session.title}</h2>
+        <p class="text-indigo-600 font-bold">${new Date(session.session_date).toDateString()}</p>
+    `;
+
+    const userJoined = players.find(p => p.user_id === currentUser.id);
+    const joinBtn = document.getElementById('btn-join-action');
+    
+    if (userJoined) {
+        joinBtn.innerText = "Unjoin Session";
+        joinBtn.className = "w-full py-4 rounded-2xl font-bold text-white bg-red-500";
+    } else {
+        joinBtn.innerText = "Join Squad";
+        joinBtn.className = "w-full py-4 rounded-2xl font-bold text-white bg-indigo-600";
+    }
+
+    renderPlayers(players, session.max_players);
+}
+
+async function toggleJoin() {
+    const { data: players } = await _supabase.from('participants').select('*').eq('session_id', currentSessionId);
+    const userEntry = players.find(p => p.user_id === currentUser.id);
+
+    if (userEntry) {
+        // UNJOIN
+        await _supabase.from('participants').delete().eq('id', userEntry.id);
+    } else {
+        // JOIN (Using email prefix as default name for now)
+        const name = currentUser.email.split('@')[0];
+        await _supabase.from('participants').insert([{ session_id: currentSessionId, player_name: name, user_id: currentUser.id }]);
+    }
+    openLobby(currentSessionId);
+}
+
+function renderPlayers(players, limit) {
+    const list = document.getElementById('player-list');
+    list.innerHTML = "";
+    players.forEach((p, i) => {
+        const isWaitlist = i >= limit;
+        const div = document.createElement('div');
+        div.className = `p-4 rounded-xl flex justify-between ${isWaitlist ? 'bg-amber-50 text-amber-700' : 'bg-slate-100'}`;
+        div.innerHTML = `<span>${i+1}. <b>${p.player_name}</b></span> <span class="text-[10px] uppercase font-black">${isWaitlist ? 'Waitlist' : 'Confirmed'}</span>`;
+        list.appendChild(div);
+    });
 }
